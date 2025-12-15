@@ -3,7 +3,8 @@ name: Build gamma.xml
 on:
   workflow_dispatch:
   push:
-    branches: [ "main" ]
+    branches:
+      - main
 
 jobs:
   build:
@@ -13,27 +14,33 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Build gamma.xml
+      - name: Combine XML files
         run: |
-          echo '<?xml version="1.0" encoding="UTF-8"?>' > gamma.xml
-          echo '<GammaData>' >> gamma.xml
+          python3 << 'EOF'
+          import glob
+          import xml.etree.ElementTree as ET
 
-          for f in *.xml; do
-            if [ "$f" != "gamma.xml" ]; then
-              sed '1d;$d' "$f" >> gamma.xml
-            fi
-          done
+          root = ET.Element("offers")
 
-          echo '</GammaData>' >> gamma.xml
+          for file in sorted(glob.glob("*.xml")):
+              if file == "gamma.xml":
+                  continue
+              tree = ET.parse(file)
+              r = tree.getroot()
+              for offer in r.findall("offer"):
+                  root.append(offer)
 
-      - name: Generate MD5
-        run: |
-          md5sum gamma.xml | awk '{print $1}' > gamma.md5
+          ET.ElementTree(root).write("gamma.xml", encoding="utf-8", xml_declaration=True)
+          EOF
 
-      - name: Commit generated files
+      - name: Generate md5
+        run: md5sum gamma.xml | awk '{print $1}' > gamma.md5
+
+      - name: Commit results
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
           git add gamma.xml gamma.md5
-          git commit -m "Auto-generate gamma.xml and md5" || echo "No changes"
+          git commit -m "Generate gamma.xml and md5" || echo "No changes"
           git push
+
