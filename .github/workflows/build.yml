@@ -1,0 +1,72 @@
+name: Build gamma.xml
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build gamma.xml
+        run: |
+          python << 'EOF'
+          import glob, os, xml.etree.ElementTree as ET
+          from xml.dom import minidom
+
+          def prettify(elem):
+              rough = ET.tostring(elem, 'utf-8')
+              return minidom.parseString(rough).toprettyxml(indent="  ")
+
+          root = ET.Element("cenyMieszkan")
+
+          dev = ET.SubElement(root, "deweloper")
+          ET.SubElement(dev, "nazwa").text = "GAMMA Sp. z o.o. Spółka komandytowa"
+          ET.SubElement(dev, "nip").text = "5932606985"
+          ET.SubElement(dev, "regon").text = "366853911"
+          ET.SubElement(dev, "email").text = "biuro@gamma.tczew.pl"
+          ET.SubElement(dev, "telefon").text = "587775353"
+          ET.SubElement(dev, "stronaInternetowa").text = "https://gamma.tczew.pl"
+
+          inwestycja = ET.SubElement(root, "inwestycja")
+          ET.SubElement(inwestycja, "nazwa").text = "Apartamenty nad Wisłą"
+
+          for file in glob.glob("*.xml"):
+              if file in ["gamma.xml"]:
+                  continue
+
+              budynek = ET.SubElement(inwestycja, "budynek")
+              ET.SubElement(budynek, "id").text = os.path.splitext(file)[0]
+              lokale = ET.SubElement(budynek, "lokale")
+
+              tree = ET.parse(file)
+              r = tree.getroot()
+
+              for offer in r.findall(".//offer"):
+                  raw = offer.findtext(".//w_kt_rym_prowadzona_jest_sprzeda_powiat_adresu_lokalu")
+                  if not raw:
+                      continue
+
+                  data = raw.split(";")
+
+                  lokal = ET.SubElement(lokale, "lokal")
+                  ET.SubElement(lokal, "idLokalu").text = data[11]
+                  ET.SubElement(lokal, "cenaZaM2").text = data[12]
+                  ET.SubElement(lokal, "cenaCalkowita").text = data[14]
+                  ET.SubElement(lokal, "dataObowiazywania").text = data[13]
+                  ET.SubElement(lokal, "adresProspektu").text = data[-1]
+
+          with open("gamma.xml", "w", encoding="utf-8") as f:
+              f.write(prettify(root))
+          EOF
+
+      - name: Commit gamma.xml
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add gamma.xml
+          git commit -m "Generate gamma.xml"
+          git push
