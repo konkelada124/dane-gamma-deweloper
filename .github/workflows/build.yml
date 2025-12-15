@@ -8,14 +8,6 @@ on:
 permissions:
   contents: write
 
-name: Build gamma.xml
-
-on:
-  workflow_dispatch:
-  push:
-    branches:
-      - main
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -24,33 +16,33 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Combine XML files
+      - name: Build gamma.xml and md5
         run: |
           python3 << 'EOF'
-          import glob
-          import xml.etree.ElementTree as ET
+          import glob, hashlib
 
-          root = ET.Element("offers")
+          files = sorted(glob.glob("*.xml"))
+          with open("gamma.xml", "w", encoding="utf-8") as out:
+              out.write('<?xml version="1.0" encoding="UTF-8"?>\n<offers>\n')
+              for f in files:
+                  if f == "gamma.xml":
+                      continue
+                  with open(f, encoding="utf-8") as inp:
+                      for line in inp:
+                          if "<offer" in line or "</offer>" in line:
+                              out.write(line)
+              out.write("</offers>")
 
-          for file in sorted(glob.glob("*.xml")):
-              if file == "gamma.xml":
-                  continue
-              tree = ET.parse(file)
-              r = tree.getroot()
-              for offer in r.findall("offer"):
-                  root.append(offer)
-
-          ET.ElementTree(root).write("gamma.xml", encoding="utf-8", xml_declaration=True)
+          md5 = hashlib.md5(open("gamma.xml","rb").read()).hexdigest()
+          with open("gamma.xml.md5","w") as f:
+              f.write(md5)
           EOF
-
-      - name: Generate md5
-        run: md5sum gamma.xml | awk '{print $1}' > gamma.md5
 
       - name: Commit results
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-          git add gamma.xml gamma.md5
-          git commit -m "Generate gamma.xml and md5" || echo "No changes"
+          git add gamma.xml gamma.xml.md5
+          git commit -m "Auto-generate gamma.xml and md5" || echo "No changes"
           git push
 
