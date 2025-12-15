@@ -1,6 +1,16 @@
 name: Build gamma.xml
 
 on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+name: Build gamma.xml
+
+on:
   workflow_dispatch:
   push:
     branches:
