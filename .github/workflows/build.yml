@@ -35,7 +35,7 @@ jobs:
           ET.SubElement(inwestycja, "nazwa").text = "Apartamenty nad Wisłą"
 
           for file in glob.glob("*.xml"):
-              if file in ["gamma.xml"]:
+              if file == "gamma.xml":
                   continue
 
               budynek = ET.SubElement(inwestycja, "budynek")
